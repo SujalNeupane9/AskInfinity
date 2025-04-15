@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-GOOGLE_API_KEY = 'AIzaSyBNc_Yzs5uWlYtoXu_YK2QZtGAXQ5rUI1E'
+GOOGLE_API_KEY = '.................'   ## Add you api key here
 os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 
 def create_vector_db_from_pdf(pdf_path, persist_directory=None):
