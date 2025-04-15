@@ -41,3 +41,8 @@ python manage.py runserver
 hen visit http://127.0.0.1:8000 in your browser to start chatting with AskInfinity.
 
 ## ✨ Screenshots
+### 🔹 Home Page
+![Home Page](assets/screen-1.png)
+
+### 🔹 Chat Interface
+![Chat Interface](assets/screen-2.png)
