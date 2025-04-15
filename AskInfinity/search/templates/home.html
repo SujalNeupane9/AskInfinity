@@ -1,0 +1,409 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4 d-flex flex-column" style="height: 90vh;">
+    <!-- Chat header -->
+    <div class="mb-3 d-flex align-items-center">
+        <h4 class="mb-0 fw-bold text-primary">AskInfinity Chat</h4>
+        <div class="ms-auto badge bg-success">Online</div>
+    </div>
+    
+    <!-- Chat container with subtle shadow and rounded corners -->
+    <div class="card shadow-sm flex-grow-1 border-0 mb-3 overflow-hidden">
+        <!-- Chat messages area -->
+        <div id="chat-box" class="flex-grow-1 p-4 overflow-auto bg-white" style="max-height: 65vh;">
+            <!-- Messages will show here -->
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-chat-dots" style="font-size: 2rem;"></i>
+                <p class="mt-2">Start a conversation</p>
+            </div>
+        </div>
+        
+        <!-- Input area with subtle separator -->
+        <div class="p-3 bg-light border-top">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="web-search-toggle">
+                    <label class="form-check-label" for="web-search-toggle">
+                        <i class="bi bi-globe me-1"></i>Web Search
+                    </label>
+                </div>
+                <div id="search-indicator" class="text-primary d-none">
+                    <small><i class="bi bi-info-circle me-1"></i>Using web search</small>
+                </div>
+            </div>
+            <form id="chat-form" class="d-flex flex-column gap-2" enctype="multipart/form-data">
+                <div class="d-flex gap-2">
+                    <input 
+                        type="text" 
+                        id="user-input" 
+                        class="form-control border-0 shadow-sm" 
+                        placeholder="Type your message..." 
+                        required
+                        autocomplete="off">
+                    <button 
+                        type="button" 
+                        id="file-upload-btn" 
+                        class="btn btn-outline-secondary px-3 shadow-sm" 
+                        title="Upload Files">
+                        <i class="bi bi-paperclip"></i>
+                    </button>
+                    <button 
+                        type="submit" 
+                        class="btn btn-primary px-4 shadow-sm">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </div>
+                <!-- Hidden file inputs -->
+                <input type="file" id="pdf-upload" accept=".pdf" style="display: none;">
+                <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                <!-- Upload preview area, hidden by default -->
+                <div id="upload-preview" class="d-none mt-2">
+                    <div class="d-flex gap-2 align-items-center p-2 bg-white rounded border">
+                        <i id="preview-icon" class="bi bi-file-earmark text-primary fs-5"></i>
+                        <div class="flex-grow-1 text-truncate" id="preview-name">filename.ext</div>
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0" id="remove-file">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- File upload modal -->
+<div class="modal fade" id="fileUploadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-column gap-3">
+                    <div class="d-grid">
+                        <button id="upload-pdf-btn" class="btn btn-outline-primary py-3">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Upload PDF
+                        </button>
+                    </div>
+                    <div class="d-grid">
+                        <button id="upload-image-btn" class="btn btn-outline-primary py-3">
+                            <i class="bi bi-image me-2"></i>Upload Image
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<!-- Include marked.js for Markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Include Bootstrap JS for modal -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Initialize file upload variables
+    let currentFileInput = null;
+    let currentFile = null;
+    
+    // Initialize Bootstrap modal
+    const fileUploadModal = new bootstrap.Modal(document.getElementById('fileUploadModal'));
+    
+    // Web search toggle
+    const webSearchToggle = document.getElementById('web-search-toggle');
+    const searchIndicator = document.getElementById('search-indicator');
+    
+    webSearchToggle.addEventListener('change', function() {
+        if (this.checked) {
+            searchIndicator.classList.remove('d-none');
+        } else {
+            searchIndicator.classList.add('d-none');
+        }
+    });
+    
+    // File upload button click handler
+    document.getElementById('file-upload-btn').addEventListener('click', function() {
+        fileUploadModal.show();
+    });
+    
+    // PDF upload button click handler
+    document.getElementById('upload-pdf-btn').addEventListener('click', function() {
+        document.getElementById('pdf-upload').click();
+        fileUploadModal.hide();
+    });
+    
+    // Image upload button click handler
+    document.getElementById('upload-image-btn').addEventListener('click', function() {
+        document.getElementById('image-upload').click();
+        fileUploadModal.hide();
+    });
+    
+    // PDF file selected
+    document.getElementById('pdf-upload').addEventListener('change', function(e) {
+        handleFileSelection(e, 'bi-file-earmark-pdf');
+    });
+    
+    // Image file selected
+    document.getElementById('image-upload').addEventListener('change', function(e) {
+        handleFileSelection(e, 'bi-image');
+    });
+    
+    // Handle file selection
+    function handleFileSelection(e, iconClass) {
+        const fileInput = e.target;
+        if (fileInput.files.length > 0) {
+            currentFileInput = fileInput;
+            currentFile = fileInput.files[0];
+            
+            // Show preview
+            document.getElementById('upload-preview').classList.remove('d-none');
+            document.getElementById('preview-icon').className = `bi ${iconClass} text-primary fs-5`;
+            document.getElementById('preview-name').textContent = currentFile.name;
+            
+            // Disable web search when file is uploaded
+            webSearchToggle.checked = false;
+            webSearchToggle.disabled = true;
+            searchIndicator.classList.add('d-none');
+        }
+    }
+    
+    // Remove file button click handler
+    document.getElementById('remove-file').addEventListener('click', function() {
+        resetFileUpload();
+    });
+    
+    // Reset file upload
+    function resetFileUpload() {
+        document.getElementById('upload-preview').classList.add('d-none');
+        if (currentFileInput) {
+            currentFileInput.value = '';
+        }
+        currentFileInput = null;
+        currentFile = null;
+        
+        // Re-enable web search toggle
+        webSearchToggle.disabled = false;
+    }
+
+    // Chat form submit handler
+    document.getElementById('chat-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const input = document.getElementById('user-input');
+        const message = input.value.trim();
+        if (message === '' && !currentFile) return;
+
+        const chatBox = document.getElementById('chat-box');
+        // Remove the initial placeholder if it exists
+        if (chatBox.querySelector('.text-center.text-muted')) {
+            chatBox.innerHTML = '';
+        }
+        
+        // Create FormData object for file uploads
+        const formData = new FormData();
+        formData.append('message', message);
+        
+        // Add file if selected
+        if (currentFile) {
+            formData.append('file', currentFile);
+        }
+        
+        // Add web search flag
+        const useWebSearch = webSearchToggle.checked;
+        formData.append('use_web', useWebSearch);
+        
+        // Display what's being sent
+        let displayMessage = message;
+        if (currentFile) {
+            const fileIcon = currentFile.type.includes('pdf') ? 'bi-file-earmark-pdf' : 'bi-image';
+            displayMessage += `<div class="mt-2 d-flex align-items-center">
+                <i class="bi ${fileIcon} me-2"></i>
+                <span class="small text-muted">${currentFile.name}</span>
+            </div>`;
+        }
+        
+        if (useWebSearch) {
+            displayMessage += `<div class="mt-2 d-flex align-items-center">
+                <i class="bi bi-globe me-2"></i>
+                <span class="small text-muted">Using web search</span>
+            </div>`;
+        }
+        
+        // Add user message with improved styling
+        chatBox.innerHTML += `
+            <div class="d-flex justify-content-end mb-3">
+                <div class="message-container">
+                    <div class="text-muted small mb-1">You</div>
+                    <div class="bg-primary text-white p-3 rounded-4 shadow-sm user-message">${displayMessage}</div>
+                </div>
+            </div>
+        `;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        input.value = '';
+        resetFileUpload();
+        
+        // Show typing indicator
+        const typingId = 'typing-indicator';
+        chatBox.innerHTML += `
+            <div id="${typingId}" class="d-flex mb-3">
+                <div class="message-container">
+                    <div class="text-muted small mb-1">AskInfinity</div>
+                    <div class="bg-light border p-3 rounded-4 shadow-sm typing-indicator">
+                        <div class="dot-pulse"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        fetch("{% url 'chatbot' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Remove typing indicator
+            document.getElementById(typingId).remove();
+            
+            const parsedResponse = marked.parse(data.response);
+            chatBox.innerHTML += `
+                <div class="d-flex mb-4">
+                    <div class="message-container">
+                        <div class="text-muted small mb-1">AskInfinity</div>
+                        <div class="bg-light border p-3 rounded-4 shadow-sm bot-message">${parsedResponse}</div>
+                    </div>
+                </div>
+            `;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            // Remove typing indicator
+            document.getElementById(typingId).remove();
+            
+            chatBox.innerHTML += `
+                <div class="d-flex mb-3">
+                    <div class="message-container">
+                        <div class="text-muted small mb-1">AskInfinity</div>
+                        <div class="bg-danger text-white p-3 rounded-4 shadow-sm">Oops! Something went wrong.</div>
+                    </div>
+                </div>
+            `;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    });
+</script>
+
+<style>
+    /* Message containers */
+    .message-container {
+        max-width: 75%;
+    }
+    
+    /* User message styling */
+    .user-message {
+        background-color: #4361ee !important;
+    }
+    
+    /* Bot message styling */
+    .bot-message {
+        background-color: #f8f9fa;
+    }
+    
+    /* Code blocks inside bot messages */
+    .bot-message pre {
+        background-color: #2b2b2b;
+        color: #f8f8f2;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+    }
+    
+    /* Typing indicator animation */
+    .typing-indicator {
+        width: 70px;
+    }
+    
+    .dot-pulse {
+        position: relative;
+        left: 5px;
+        width: 6px;
+        height: 6px;
+        border-radius: 5px;
+        background-color: #6c757d;
+        animation: dot-pulse 1.5s infinite linear;
+    }
+    
+    .dot-pulse::before, .dot-pulse::after {
+        content: '';
+        position: absolute;
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 5px;
+        background-color: #6c757d;
+    }
+    
+    .dot-pulse::before {
+        left: -12px;
+        animation: dot-pulse-before 1.5s infinite linear;
+    }
+    
+    .dot-pulse::after {
+        left: 12px;
+        animation: dot-pulse-after 1.5s infinite linear;
+    }
+    
+    @keyframes dot-pulse-before {
+        0% { transform: scale(1); opacity: 1; }
+        25% { transform: scale(1.5); opacity: 1; }
+        50% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes dot-pulse {
+        0% { transform: scale(1); opacity: 1; }
+        25% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.5); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes dot-pulse-after {
+        0% { transform: scale(1); opacity: 1; }
+        25% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1); opacity: 1; }
+        75% { transform: scale(1.5); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Better focus outline for accessibility */
+    #user-input:focus {
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    /* File upload button styling */
+    #file-upload-btn {
+        transition: all 0.2s;
+    }
+    
+    #file-upload-btn:hover {
+        background-color: #e9ecef;
+    }
+    
+    /* Web search toggle styling */
+    .form-switch .form-check-input:checked {
+        background-color: #4361ee;
+        border-color: #4361ee;
+    }
+    
+    .form-switch .form-check-input:focus {
+        box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+    }
+</style>
+{% endblock %}
